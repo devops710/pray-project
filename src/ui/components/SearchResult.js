@@ -1,65 +1,77 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 import axios from "axios";
 import {useNavigate} from 'react-router-dom';
-import InfiniteScroll from 'react-infinite-scroll-component';
+import {useInView} from 'react-intersection-observer';
 
-const SearchResult = ({addr , isClicked}) => {
+const SearchResult = ({addr , isClicked, resultList, moreHandler}) => {
 
-    const [responseData, setResponseData] = useState(null);
+    const [responseData, setResponseData] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [isEmpty, setIsEmpty] = useState(false);
-    const [page, setPage] = useState({
-        current : 0,
-        total : 0
-    })
+    const [pageCnt, setPageCnt] = useState(1);
+    const [totalCnt, setTotalCnt] = useState(1);
+    const [ref, inView] = useInView(false);
 
     //const [mainLong, setMainLong] = useState(null);
     //const [mainLat, setMainLat] = useState(null);
     const navigate = useNavigate();    
     const serviceKey = process.env.REACT_APP_API_KEY;
 
-    const search = async (startIndex) => {
-    try {
-        // let num = page.current + 1;
-        setError(null);
-        //setData(null);
-        setLoading(true);
-        setIsEmpty(false);
+    const search = async () => {
+        if ( totalCnt >= pageCnt) {
+            try {
+                // let num = page.current + 1;
+                setError(null);
+                //setData(null);
+                setLoading(true);
+               
+                
+                console.log(pageCnt);     
         
-        console.log(page.current);     
+                const response = await axios.get(
+                `/service/EvInfoServiceV2/getEvSearchList?serviceKey=${serviceKey}&pageNo=${pageCnt}&numOfRows=10&addr=${addr}`
+                );
+                // setPage((prevPage) => ({
+                //     ...prevPage,
+                //     current : num,
+                //     total: response.data.response.body.totalCount,            
+                // }));
+                // console.log(page.total);
+                console.log(response.data.response.body.totalCount);
+                if(response.data.response.body.totalCount !== 0){
+                    setTotalCnt(Math.ceil(response.data.response.body.totalCount / 10));
+                    const newData = responseData.concat(response.data.response.body.items.item);
+                    console.log(newData);
+                    setResponseData(newData);
+                    setPageCnt(pageCnt + 1);
+                } else {
+                    setResponseData([]);
+                    setIsEmpty(true);
+                    setResponseData([]);
+                    setPageCnt(1);
+                    setTotalCnt(1);
 
-        const response = await axios.get(
-        `/service/EvInfoServiceV2/getEvSearchList?serviceKey=${serviceKey}&pageNo=${startIndex + 1}&numOfRows=10&addr=${addr}`
-        );
-        // setPage((prevPage) => ({
-        //     ...prevPage,
-        //     current : num,
-        //     total: response.data.response.body.totalCount,            
-        // }));
-        // console.log(page.total);
-
-        const newData = response.data.response.body.items.item;
-        console.log(newData);
-        setResponseData((prevData) => (
-            newData
-              ? Array.isArray(newData)
-                ? [...(prevData || []), ...newData]
-                : [...(prevData || []), newData]
-              : prevData || []
-          ));
-        //console.log([...responseData, ...newData]);
-        console.log(responseData);
-        if(response.data.response.body.items === ''){
-            setIsEmpty(true);
-        } 
-        // console.log(scrollRef.current);      
-        // window.scrollTo(0, scrollRef.current);     
-        
-    } catch(e) {
-        setError(e);
-    }
-    setLoading(false);
+                }
+                // setResponseData((prevData) => (
+                //     newData`
+                //       ? Array.isArray(newData)
+                //         ? [...(prevData || []), ...newData]
+                //         : [...(prevData || []), newData]
+                //       : prevData || []
+                //   ));
+                console.log(response.data.response.body.items);
+                console.log(responseData);
+                // if(response.data.response.body.items === ''){
+                // } 
+                // console.log(scrollRef.current);      
+                // window.scrollTo(0, scrollRef.current);     
+                
+            } catch(e) {
+                setError(e);
+            }
+            setLoading(false);
+        }
     };
 
     const onClick = e => {
@@ -89,40 +101,58 @@ const SearchResult = ({addr , isClicked}) => {
           });
     };
 
-    const showMore = () => {
-        const num = page.current + 1;
-        setPage((prevPage) => ({
-          ...prevPage,
-          current: num,
-        }));
-        search(num);
-      };
+    // const showMore = () => {
+    //     const num = page.current + 1;
+    //     setPage((prevPage) => ({
+    //       ...prevPage,
+    //       current: num,
+    //     }));
+    //     search(num);
+    //   };
     
-    const handleScroll = () => {
-        if (
-            window.innerHeight + document.documentElement.scrollTop ===
-            document.documentElement.offsetHeight
-        ) {
-            showMore();
+    // const handleScroll = () => {
+    //     if (
+    //         window.innerHeight + document.documentElement.scrollTop ===
+    //         document.documentElement.offsetHeight
+    //     ) {
+    //         showMore();
+    //     }
+    // };
+
+    // useEffect(() => {
+    //     window.addEventListener('scroll', handleScroll);
+    //     return () => {
+    //       window.removeEventListener('scroll', handleScroll);
+    //     };
+    // }, []);
+    // useEffect(() => {
+    //     if (inView) {
+    //         search();
+    //     }
+    //     // eslint-disable-next-line react-hooks/exhaustive-deps
+    //   }, [inView]);
+
+
+    // useEffect(() => {
+    //     if(!inView){
+    //         setPageCnt(1);
+    //         setResponseData([]);
+    //         setIsEmpty(false);
+    //         setTotalCnt(1);
+    //     }
+    //     if (addr !== "" && inView) {            
+    //         moreHandler();
+    //       }
+    //     //   console.log(scrollRef.current);      
+    //     //   window.scrollTo(0, scrollRef.current);
+    //     // eslint-disable-next-line react-hooks/exhaustive-deps        
+    // }, [addr, isClicked, inView]);
+
+    useEffect(() => {
+        if(inView && moreHandler) {
+            moreHandler();
         }
-    };
-
-    useEffect(() => {
-        window.addEventListener('scroll', handleScroll);
-        return () => {
-          window.removeEventListener('scroll', handleScroll);
-        };
-    }, []);
-
-    useEffect(() => {
-        setPage({current:0, total:0});
-        if (addr !== "" && isClicked) {            
-            setResponseData(null);
-            search();                      
-          }
-        //   console.log(scrollRef.current);      
-        //   window.scrollTo(0, scrollRef.current);        
-    }, [addr, isClicked]);
+    }, [inView]);
 
     // const showMore = () => {  
     //     scrollRef.current = window.scrollY;
@@ -137,14 +167,7 @@ const SearchResult = ({addr , isClicked}) => {
 
     return(
         <div>
-            {responseData && page.current === 1 && <h1>RESULT</h1>}
-            <InfiniteScroll
-                dataLength={responseData && responseData.length}
-                next={showMore}
-                hasMore={page.current * 10 < page.total}
-                loader={<h4>Loading...</h4>}
-            >
-            {responseData && Array.isArray(responseData) ? (responseData.map((item) => (
+            {!isEmpty && resultList && Array.isArray(resultList) ? (resultList.map((item) => (
                 <ul
                 className={'tour'}
                 key={item.cpid}
@@ -169,7 +192,7 @@ const SearchResult = ({addr , isClicked}) => {
                         "DC차데모" : item.cpTp === 6 ? "AC3상" : item.cpTp === 7 ? "DC콤보" : item.cpTp === 8 ? "DC차데모+DC콤보" : item.cpTp === 9 ? "DC차데모+AC3상" : "DC차데모+DC콤보+AC3상"}
                     </li>
                 </ul>
-            ))) : ( responseData && (
+            ))) : ( !isEmpty && responseData && (
                 <ul
                 className={'tour'}
                 key={responseData.cpid}
@@ -195,10 +218,10 @@ const SearchResult = ({addr , isClicked}) => {
                     </li>
                 </ul>
             ))}
-            </InfiniteScroll> 
+            {!isEmpty && responseData && <div ref={ref} style={{height: '20px'}}></div>}
         </div>
     );
 };
 
 
-export default SearchResult;
+export default memo(SearchResult);
